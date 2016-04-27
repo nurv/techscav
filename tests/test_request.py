@@ -13,7 +13,7 @@
 import unittest
 from mock import Mock
 
-from techscav.models import Request
+from techscav import Request
 
 class TestRequest(unittest.TestCase):
 

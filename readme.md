@@ -36,4 +36,15 @@ The properties file describes what web servies the system should be looking for.
 }
 ```
 
+## Tests
+To run tests just run nosetests:
+```
+$ nosetests
+```
+
+To check coverage, use the flag ``--with-coverage``:
+```
+$ nosetests --with-coverage
+```
+
 

@@ -14,7 +14,7 @@ import unittest
 
 import re
 
-from techscav.models import Property
+from techscav import Property
 
 class TestPropertyLoad(unittest.TestCase):
   def test_load_properties_from_config(self):
