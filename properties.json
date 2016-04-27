@@ -1,0 +1,41 @@
+{
+  "properties":[
+    {
+      "name": "Magento",
+      "domains": [
+        "magento.com"
+
+      ]
+    },
+    {
+      "name": "Shopify",
+      "domains": [
+        "shopify.com"
+      ]
+    },
+    {
+      "name": "BigCommerce",
+      "domains": [
+        "bigcommerce.com"
+      ]
+    },
+    {
+      "name": "Zendesk",
+      "domains": [
+        "zendesk.com"
+      ]
+    },
+    {
+      "name": "Desk",
+      "domains": [
+        "desk.com"
+      ]
+    },
+    {
+      "name": "Freshdesk",
+      "domains": [
+        "freshdesk.com"
+      ]
+    }
+  ]
+}
