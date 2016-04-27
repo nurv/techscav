@@ -15,7 +15,7 @@ import threading
 import json
 from multiprocessing import cpu_count
 
-from techscav.models import load_properties_from_config, Property, DomainsFile, Manager, SimpleChecker, PhantomJSChecker
+from techscav.models import  Property, DomainsFile, Manager, SimpleChecker, PhantomJSChecker
 
 def main():
   parser = argparse.ArgumentParser(description='Detects the usage of online properties')
@@ -38,7 +38,7 @@ def main():
   args = parser.parse_args()
 
   propdict = json.loads(args.properties.read())
-  properties = load_properties_from_config(propdict)
+  properties = Property.from_config(propdict)
 
   if args.mode[0] == "simple":
     checker = SimpleChecker(properties)

@@ -114,6 +114,7 @@ class Manager(object):
     self.off = 0
     self.checker = checker
     self.domains = mgmt().dict()
+    self.properties = properties
 
   def add_new_request(self, request):
     self.queue.put(request)
@@ -132,8 +133,6 @@ class Manager(object):
         self.add_new_request(r)
 
   def start(self):
-    print "starting %d workers" % self.smp
-
     self.fetch_domains()
     
     self.workers = [Process(target=work, args=(i, self))
@@ -156,5 +155,5 @@ class Manager(object):
 
   def dump(self):
     for domain,matches in self.domains.items():
-      print "%s: %s" % (domain,reduce(lambda x,y: "%s, %s" % (x,y), map(lambda x: properties[x].name, matches)))
+      print "%s: %s" % (domain,reduce(lambda x,y: "%s, %s" % (x,y), map(lambda x: self.properties[x].name, matches)))
 
