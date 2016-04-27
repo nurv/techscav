@@ -22,8 +22,8 @@ class TestManager(unittest.TestCase):
     p
     r = Manager(f, p, 1, None)
 
-      self.assertEqual(r.url, "http://foo.com")
-      self.assertEqual(r.domain, "foo.com")
+    self.assertEqual(r.url, "http://foo.com")
+    self.assertEqual(r.domain, "foo.com")
 
   def test_execute(self):
 
