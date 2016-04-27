@@ -17,6 +17,7 @@ import requests
 import argparse
 import threading
 import json
+import logging
 
 from subprocess import Popen, PIPE
 from multiprocessing import Process, JoinableQueue, cpu_count, Manager as mgmt
@@ -88,11 +89,15 @@ class SimpleChecker(object):
         """
         result = []
         try:
+            logging.debug("Making request into %s" % url)
             r = requests.get(url, timeout=10)
         except:
+            logging.debug("Some error happened, ignoring")
             return result
+
         for p in self.properties.values():
             if re.search(p.re, r.text):
+                logging.debug("Found %s property on %s " % (p.name, r.url))
                 result.append(p.key)
         return result
 
@@ -104,6 +109,7 @@ class PhantomJSChecker(object):
         self.binary = binary
 
     def check(self, url):
+        logging.debug("Making request into %s" % url)
         process = Popen(['/usr/bin/env', 'node', self.binary,
                          'pjs.js', url], stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
@@ -111,6 +117,7 @@ class PhantomJSChecker(object):
         print stdout
         for key, p in self.properties.items():
             if re.search(p.re, stdout):
+                logging.debug("Found some %s property on %s " % (p.name, p.url))
                 result.append(p.key)
         return result
 
@@ -170,8 +177,8 @@ def work(process, manager):
     while True:
         req = manager.fetch_new_request()
         if not req:
+            logging.debug("Nothing else to do, %s dying" % process)
             break
-        print "%d Checking %s" % (process, req.url)
         res = req.execute(manager.checker)
         if res:
             manager.domains[req.domain] = res
@@ -204,6 +211,7 @@ class Manager(object):
         """
         Adds a new request to the queue of requests
         """
+        logging.debug("Addding request to queue %s" % request.url)
         self.queue.put(request)
 
     def fetch_new_request(self):
@@ -233,7 +241,9 @@ class Manager(object):
 
         self.workers = [Process(target=work, args=(i, self))
                         for i in xrange(self.smp)]
-
+        
+        logging.debug("Spawing %s daemons" % len(self.workers))
+        
         for w in self.workers:
             w.daemon = True
             w.start()
@@ -241,6 +251,7 @@ class Manager(object):
         while True:
             time.sleep(0.1)
             if self.domainsFile.finished:
+                logging.debug("Looks finished, joining")
                 for w in self.workers:
                     w.join()
                 break
@@ -262,10 +273,12 @@ def main():
     """
     The main function
     """
-    parser = argparse.ArgumentParser(description='Detects the usage of online properties')
+    parser = argparse.ArgumentParser(description='Detects the usage of web properties')
   
     parser.add_argument('file', metavar='<file>', type=argparse.FileType('r'), nargs=1,
-                     help='files with the domains to be searched')
+                     help='file with the domains to be searched')
+    
+    parser.add_argument('-v', '--verbose', action="count", help="verbose level... repeat up to three times.")
 
     parser.add_argument('-p', "--properties", metavar='<properties>', type=argparse.FileType('r'), nargs=1,
                      help='file describing the properties and the domains related to them (default: sites.json)', default="properties.json")
@@ -281,19 +294,38 @@ def main():
 
     args = parser.parse_args()
 
+
+    if not args.verbose:
+        level = logging.ERROR
+    elif args.verbose == 1:
+        level = logging.WARNING
+    elif args.verbose == 2:
+        level = logging.INFO
+    elif args.verbose >= 3:
+        level = logging.DEBUG
+    logging.basicConfig(format='[%(levelname)s] %(message)s', level=level)
+
+    logging.debug("Args parsed: %s" % args)
+    
     propdict = json.loads(args.properties.read())
+
     properties = Property.from_config(propdict)
+    
+    logging.debug("%s properties loaded and parsed" % len(propdict['properties']))
 
     if args.mode[0] == "simple":
+        logging.debug("Using SimpleChecker")
         checker = SimpleChecker(properties)
     elif args.mode[0] == "phantomjs":
+        logging.debug("Using PhantomJSChecker")
         checker = PhantomJSChecker(properties, args.phantomjs_bin[0])
     else:
+        logging.error("unkonwn mode: %s" % args.mode)
         raise Exception("unkonwn mode: %s" % args.mode)
 
     manager = Manager(DomainsFile(args.file[0]), properties, args.threads[0], checker)
     manager.start()
-
+    logging.debug("Finished, dumping %s result(s)" % len(manager.domains))
     manager.dump()
 
 if __name__ == '__main__':
