@@ -3,7 +3,7 @@ This application craws a set of domains looking for usages of a given list of we
 
 ## Usage:
 `
-$ python techscav.py <list of domains>
+$ python techscav.py <file with list of domains>
 `
 
 Other options:
@@ -14,7 +14,7 @@ Other options:
 * ``-t``, ``--threads`` - how many threads should the application spwan
 
 ## Properties File
-The properties file describes what web servies the system should be looking for. Each property can have more than one domain associated (e.g. Google → ``google.com``, ``google.pt``, ``gmail.com``, etc.). Below there's a sample of this file:
+The properties file describes what web servies the system should be looking for. Each property can have more than one domain associated (e.g. Google → ``google.com``, ``google.pt``, ``gmail.com``, etc.). Below is a sample:
 
 ```
 {
