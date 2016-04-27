@@ -12,28 +12,25 @@
 
 import unittest
 from mock import Mock
-
-from techscav import Request
+from mocks import MockFile
+from techscav import Manager, Property
 
 class TestManager(unittest.TestCase):
 
   def test_create(self):
     f = MockFile("""""")
-    p
-    r = Manager(f, p, 1, None)
+    p = Property.from_config({
+      "properties":[
+        {
+          "name": "Foo",
+          "domains": [
+            "foo.com"
 
-    self.assertEqual(r.url, "http://foo.com")
-    self.assertEqual(r.domain, "foo.com")
-
-  def test_execute(self):
-
-    mockChecker = Mock()
-    mockChecker.check.return_value = "YES!"
-    
-    r = Request("http://foo.com", "foo.com")    
-    res = r.execute(mockChecker)
-    
-    self.assertEqual(res, "YES!")
+          ]
+        }
+      ]
+    })
+    m = Manager(f, p, 1, None)
 
 
 if __name__ == '__main__':

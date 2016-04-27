@@ -13,6 +13,8 @@ Other options:
 * ``-j``, ``--phantomjs-bin`` - where the PhantomJS binary is located (only necessary if using the PhantomJS dectection mode)
 * ``-t``, ``--threads`` - how many threads should the application spwan
 
+Check ``--help`` for more information.
+
 ## Properties File
 The properties file describes what web servies the system should be looking for. Each property can have more than one domain associated (e.g. Google → ``google.com``, ``google.pt``, ``gmail.com``, etc.). Below is a sample:
 
