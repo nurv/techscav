@@ -13,7 +13,7 @@
 import unittest
 from mock import Mock
 
-from techscav.models import DomainsFile
+from techscav import DomainsFile
 from mocks import MockFile
 
 class TestDomainsFile(unittest.TestCase):

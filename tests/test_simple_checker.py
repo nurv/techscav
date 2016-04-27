@@ -14,7 +14,7 @@ import unittest
 import threading
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 
-from techscav.models import Property, SimpleChecker
+from techscav import Property, SimpleChecker
 
 PORT_NUMBER = 9595
 
