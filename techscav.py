@@ -18,18 +18,46 @@ import argparse
 import threading
 import json
 import logging
-
+import robotparser
+import urlparse
 from subprocess import Popen, PIPE
 from multiprocessing import Process, JoinableQueue, cpu_count, Manager as mgmt
-
+from bs4 import BeautifulSoup
 from functools import reduce
 
+import hashlib
 
 def _gen_random_sha():
     """
     Generates a random SHA1 hash for identification
     """
     return "%032x" % random.getrandbits(128)
+
+
+class Domain(object):
+    def __init__(self, netloc, useragent="*", use_robots=True, depth=1):
+        self.netloc = netloc
+        self.useragent = useragent
+        self.use_robots = use_robots
+        self.re = "[.\\/]" + re.escape(netloc)
+        self.depth = depth
+        if self.use_robots:
+            self.robots = robotparser.RobotFileParser()
+            self.robots.set_url("http://%s/robots.txt" % self.netloc)
+
+    def can_i_visit(self, url):
+        if self.use_robots:
+            if self.robots and self.robots.mtime() == 0:
+                try:
+                    self.robots.read()
+                except:
+                    self.robots = None
+            if not self.robots:
+                return True
+            else:
+                return self.robots.can_fetch(self.useragent, url)
+        else:
+            return True
 
 
 class Property(object):
@@ -48,10 +76,7 @@ class Property(object):
         self.name = name
         self.domains = domains
         self.key = _gen_random_sha()
-        self.re = reduce(
-            lambda x, y: "%s|%s" %
-            (x, y), map(
-                lambda x: "[.\\/]" + re.escape(x), domains))
+        self.re = reduce(lambda x, y: "%s|%s" % (x, y), map(lambda x: "[.\\/]" + re.escape(x), domains))
 
     @classmethod
     def from_config(cls, propdict):
@@ -82,23 +107,48 @@ class SimpleChecker(object):
     def __init__(self, properties):
         self.properties = properties
 
-    def check(self, url):
+    def get_all_links(self, content):
+        soup = BeautifulSoup(content, 'html.parser')
+        return filter(lambda x: x, map(lambda x: x.get('href'), soup.find_all('a')))
+
+    def check(self, request, manager):
         """
         Makes a request to a URL and checks for links with domains of the web
         properties we are searching
         """
         result = []
         try:
-            logging.debug("Making request into %s" % url)
-            r = requests.get(url, timeout=10)
+            logging.debug("Making request into %s" % request.url)
+            r = requests.get(request.url, timeout=10)
         except:
             logging.debug("Some error happened, ignoring")
             return result
+        text = r.text
+        if request.depth > 1:
+            
+            a = self.get_all_links(text)
+            for link in a:
+                if link.startswith("//"):
+                    link = "http:" + link
+
+                if link.startswith("javascript:"):
+                    continue
+
+                if not link.startswith("http:"):
+                    link = urlparse.urljoin(r.url, link)
+                elif not re.search(request.domain.re, link):
+                    continue
+                
+                r = Request(link, request.domain, request.depth - 1)
+                
+                if request.domain.can_i_visit(link):
+                    manager.add_new_request(r)
 
         for p in self.properties.values():
-            if re.search(p.re, r.text):
+            if re.search(p.re, text):
                 logging.debug("Found %s property on %s " % (p.name, r.url))
                 result.append(p.key)
+
         return result
 
 
@@ -131,15 +181,13 @@ class Request(object):
       domain       the domain where this request comes from
     """
 
-    def __init__(self, url, domain):
+    def __init__(self, url, domain, depth):
         self.url = url
         self.domain = domain
-
-    def execute(self, checker):
-        """
-        Calls the checker with this url
-        """
-        return checker.check(self.url)
+        self.depth = depth
+        m = hashlib.md5()
+        m.update(url)
+        self.digest = m.digest()
 
 
 class DomainsFile(object):
@@ -174,14 +222,24 @@ def work(process, manager):
     """
     A multiprocess worker. It just fetches requests to be made and executes them
     """
-    while True:
+    tries = 3
+    while True:        
         req = manager.fetch_new_request()
+
         if not req:
-            logging.debug("Nothing else to do, %s dying" % process)
-            break
-        res = req.execute(manager.checker)
+            if tries:
+                logging.debug("Did not found anything to do, %s waiting a little" % process)
+                tries -= 1
+                time.sleep(5)
+                continue
+            else:
+                logging.debug("Nothing else to do, %s dying" % process)
+                break
+        else:
+            tries = 3
+        res = manager.checker.check(req, manager)
         if res:
-            manager.domains[req.domain] = res
+            manager.domains[req.domain.netloc] = res
         manager.queue.task_done()
 
 
@@ -199,20 +257,28 @@ class Manager(object):
       properties   the properties to searched
     """
 
-    def __init__(self, domainsFile, properties, smp, checker):
+    def __init__(self, domainsFile, properties, smp, checker, useragent="*", use_robots=True, depth=1):
         self.queue = JoinableQueue()
         self.domainsFile = domainsFile
         self.smp = smp
         self.checker = checker
         self.domains = mgmt().dict()
         self.properties = properties
+        self.useragent = useragent
+        self.use_robots = use_robots
+        self.depth = depth
+        self.hits = set()
 
     def add_new_request(self, request):
         """
         Adds a new request to the queue of requests
         """
-        logging.debug("Addding request to queue %s" % request.url)
-        self.queue.put(request)
+        if request.digest not in self.hits:
+            logging.debug("Addding request to queue %s d: %d" % (request.url, request.depth))
+            self.queue.put(request)
+            self.hits.add(request.digest)
+        else:
+            logging.debug("Cache hit %s d: %d" % (request.url, request.depth))
 
     def fetch_new_request(self):
         """
@@ -223,15 +289,22 @@ class Manager(object):
         except:
             return None
 
+    def read_domain(self):
+        domain = self.domainsFile.fetch_new_domain()
+        if domain:
+            return Domain(domain, useragent=self.useragent, use_robots=self.use_robots, depth=self.depth)
+
+
     def fetch_domains(self):
         """
         Adds a bunch of domains to the queue
         """
         for i in xrange(self.smp * 2):
-            domain = self.domainsFile.fetch_new_domain()
+            domain = self.read_domain()
             if domain:
-                r = Request("http://%s" % domain, domain)
+                r = Request("http://%s" % domain.netloc, domain, domain.depth)
                 self.add_new_request(r)
+
 
     def start(self):
         """
@@ -283,14 +356,19 @@ def main():
     parser.add_argument('-p', "--properties", metavar='<properties>', type=argparse.FileType('r'), nargs=1,
                      help='file describing the properties and the domains related to them (default: sites.json)', default="properties.json")
 
+    parser.add_argument('-i', "--ignore-robots-txt", action="store_true", help='ignores robots.txt while crawling')
+
     parser.add_argument('-m', "--mode", metavar='<mode>', type=str, nargs=1,
-                     help='how the properties are found. Can be "simple", "semantic" or "phantomjs" (default: simple)', default=["simple"])
+                     help='how the properties are found. Can be "simple" or "phantomjs" (default: simple)', default=["simple"])
 
     parser.add_argument('-j', "--phantomjs-bin", metavar='<phantomjs>', type=str, nargs=1,
                      help='the location of the phantomjs binary (default: ./node_modules/phantomjs/bin/phantomjs)', default=["./node_modules/phantomjs/bin/phantomjs"])
 
     parser.add_argument('-t','--threads', nargs=1, help='number of threads used (default: CPUs)', 
                      metavar='<threads>', type=int, default=[cpu_count()])
+
+    parser.add_argument('-d','--depth', nargs=1, help='how deep the crawler should go (default: 1)', 
+                     metavar='<depth>', type=int, default=[1])
 
     args = parser.parse_args()
 
@@ -323,7 +401,7 @@ def main():
         logging.error("unkonwn mode: %s" % args.mode)
         raise Exception("unkonwn mode: %s" % args.mode)
 
-    manager = Manager(DomainsFile(args.file[0]), properties, args.threads[0], checker)
+    manager = Manager(DomainsFile(args.file[0]), properties, args.threads[0], checker, use_robots=args.ignore_robots_txt, depth=args.depth[0])
     manager.start()
     logging.debug("Finished, dumping %s result(s)" % len(manager.domains))
     manager.dump()
