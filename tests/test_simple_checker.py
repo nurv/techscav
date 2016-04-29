@@ -72,7 +72,7 @@ class TestSimpleChecker(unittest.TestCase):
       })
       checker = SimpleChecker(prop)
 
-      res = checker.check("http://localhost:%d" % PORT_NUMBER)
+      res = checker.check("http://localhost:%d" % PORT_NUMBER, None)
 
 
     def tearDown(self):

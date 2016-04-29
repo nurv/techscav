@@ -13,25 +13,17 @@
 import unittest
 from mock import Mock
 
-from techscav import Request
+from techscav import Domain, Request
 
 class TestRequest(unittest.TestCase):
 
   def test_create(self):
-      r = Request("http://foo.com", "foo.com")
+      d = Domain("domain.com", use_robots=False, depth=2)
+      r = Request("http://foo.com", d, 1)
 
       self.assertEqual(r.url, "http://foo.com")
-      self.assertEqual(r.domain, "foo.com")
-
-  def test_execute(self):
-
-    mockChecker = Mock()
-    mockChecker.check.return_value = "YES!"
-    
-    r = Request("http://foo.com", "foo.com")    
-    res = r.execute(mockChecker)
-    
-    self.assertEqual(res, "YES!")
+      self.assertEqual(r.domain, d)
+      self.assertEqual(r.depth, 1)
 
 
 if __name__ == '__main__':
