@@ -4,7 +4,7 @@
 # -*- coding: UTF-8 -*-
 # Copyright (C) 2016 by Artur Ventura
 #
-# File: models.py
+# File: structure.py
 # Time-stamp: Wed Apr 27 18:46:00 2016
 #
 # Author: Artur Ventura
@@ -105,6 +105,22 @@ class Property(object):
             properties[p.key] = p
         return properties
 
+    def to_remote(self):
+        return {
+            'name': self.name,
+            'domains': self.domains,
+            'key': self.key
+        }
+
+    @classmethod
+    def from_remote(cls, d):
+        """
+        Transforms remote json into object
+        """
+        print d
+        prop = Property(d['name'], d['domains'])
+        prop.key = d['key']
+        return prop
 
 class SimpleChecker(object):
     """
@@ -336,8 +352,7 @@ class Manager(object):
         """
         self.fetch_domains()
 
-        self.workers = [Process(target=work, args=(i, self))
-                        for i in xrange(self.smp)]
+        self.workers = [Process(target=work, args=(i, self)) for i in xrange(self.smp)]
         
         logging.debug("Spawing %s daemons" % len(self.workers))
         

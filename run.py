@@ -12,13 +12,9 @@ def main():
   
     parser.add_argument('file', metavar='<file>', type=argparse.FileType('r'), nargs=1,
                      help='file with the domains to be searched')
-    
-    parser.add_argument('-v', '--verbose', action="count", help="verbose level... repeat up to three times.")
 
     parser.add_argument('-p', "--properties", metavar='<properties>', type=argparse.FileType('r'), nargs=1,
                      help='file describing the properties and the domains related to them (default: sites.json)', default="properties.json")
-
-    parser.add_argument('-i', "--ignore-robots-txt", action="store_true", help='ignores robots.txt while crawling')
 
     parser.add_argument('-m', "--mode", metavar='<mode>', type=str, nargs=1,
                      help='how the properties are found. Can be "simple" or "phantomjs" (default: simple)', default=["simple"])
@@ -31,6 +27,11 @@ def main():
 
     parser.add_argument('-d','--depth', nargs=1, help='how deep the crawler should go (default: 1)', 
                      metavar='<depth>', type=int, default=[1])
+
+    parser.add_argument('-i', "--ignore-robots-txt", action="store_true", help='ignores robots.txt while crawling')
+
+    
+    parser.add_argument('-v', '--verbose', action="count", help="verbose level... repeat up to three times.")
 
     args = parser.parse_args()
 
