@@ -167,23 +167,64 @@ class SimpleChecker(object):
         return result
 
 
-class PhantomJSChecker(object):
+class PhantomJSChecker(SimpleChecker):
+    """
+    Forks into PhantomJS with a URL to visit, gets the output of that execution,
+    that contains not only the content but also the network monitoring for that 
+    page.
+
+    Attributes:
+        properties   a dict of "Property" by key
+        properties   a dict of "Property" by key
+    """
 
     def __init__(self, properties, binary):
-        self.properties = properties
+        super(PhantomJSChecker, self).__init__(properties)
         self.binary = binary
 
-    def check(self, url):
-        logging.debug("Making request into %s" % url)
-        process = Popen(['/usr/bin/env', 'node', self.binary,
-                         'pjs.js', url], stdout=PIPE, stderr=PIPE)
-        stdout, stderr = process.communicate()
-        result = []
-        print stdout
+    def check(self, request, manager):
+        """
+        Forks into PhantomJS, makes a request to a URL and checks for links 
+        with domains of the web properties we are searching
+        """
+        logging.debug("Forking into Phantom for request into %s" % request.url)
+        try:
+            process = Popen(['/usr/bin/env', 'node', self.binary, 'pjs.js', request.url], stdout=PIPE, stderr=PIPE)
+            stdout, stderr = process.communicate()
+            result = []
+            data = json.loads(stdout)
+        except:
+            logging.debug("Some error happened, ignoring")
+            return []
+        text = data['content']
+        if request.depth > 1:
+            
+            a = self.get_all_links(text)
+            for link in a:
+                if link.startswith("//"):
+                    link = "http:" + link
+
+                if link.startswith("javascript:"):
+                    continue
+
+                if not link.startswith("http:"):
+                    link = urlparse.urljoin(data['url'], link)
+                elif not re.search(request.domain.re, link):
+                    continue
+                
+                r = Request(link, request.domain, request.depth - 1)
+                
+                if request.domain.can_i_visit(link):
+                    manager.add_new_request(r)
         for key, p in self.properties.items():
-            if re.search(p.re, stdout):
-                logging.debug("Found some %s property on %s " % (p.name, p.url))
+            if re.search(p.re, text):
+                logging.debug("Found some %s property on %s " % (p.name, request.url))
                 result.append(p.key)
+        for url in data['urls']:
+            for key, p in self.properties.items():
+                if re.search(p.re, url):
+                    logging.debug("Found some %s property on %s " % (p.name, request.url))
+                    result.append(p.key)
         return result
 
 
