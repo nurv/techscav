@@ -3,7 +3,7 @@ This application craws a set of domains looking for usages of a given list of we
 
 ## Usage:
 `
-$ python techscav.py <file with list of domains>
+$ python run.py <file with domains>
 `
 
 Other options:
@@ -37,6 +37,19 @@ The properties file describes what web servies the system should be looking for.
   ]
 }
 ```
+
+## PhantomJS Mode
+PhantomJS is an application that allows to run a website on the terminal. With this application we can simulate the pages we are visiting and find what URLs the page is requesting, as well the final loaded DOM. However this application requeres much more CPU power and memory since we are loading a page into a WebKit simulated view. To use this mode you first need to install PhantomJS using:
+
+```
+$ npm install phantomjs
+```
+If you already have it installed on your system, use the flat ``--phantomjs-bin`` to point where. To use this app with PhantomJS just pass the flag ``-m phantomjs``:
+
+```
+$ python run.py -m phantomjs <file with domains>
+```
+
 
 ## Tests
 To run tests just run nosetests:

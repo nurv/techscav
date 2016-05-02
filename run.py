@@ -64,7 +64,10 @@ def main():
         raise Exception("unkonwn mode: %s" % args.mode)
 
     manager = Manager(DomainsFile(args.file[0]), properties, args.threads[0], checker, use_robots=args.ignore_robots_txt, depth=args.depth[0])
-    manager.start()
+    try:
+        manager.start()
+    except:
+        logging.debug("Exception on the main thread, bailing...")    
     logging.debug("Finished, dumping %s result(s)" % len(manager.domains))
     manager.dump()
 
